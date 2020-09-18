@@ -1,5 +1,5 @@
 # Simulation Parameters
-steps = 100                 # simulation steps
+steps = 200                 # simulation steps
 init = [0.9, 0.1, 0, 0, 0]  # initial distribution
 N = 1000000                 # population size
 
