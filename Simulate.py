@@ -2,6 +2,7 @@ import quantecon as qe
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 # probability matrix of transition
 def mx(S, A, R, dst_r, msk_r, msk_e, sym_r, mor_r):
 
@@ -24,8 +25,8 @@ def mx(S, A, R, dst_r, msk_r, msk_e, sym_r, mor_r):
 
 
 # simulate step days within the SAIRD model with N people starting from ini
-def simulate(ini=[0.9, 0.1, 0.0, 0.0, 0.0], NN=1000000, step=200, sym_r=4, mor_r=0.02,
-             dst_r=0, msk_r=0, msk_e=1, inf_wo_s=7, inf_w_s=14, rec=56):
+def simulate(ini=[0.9, 0.1, 0.0, 0.0, 0.0], NN=1000000, step=200, sym_r=4., mor_r=0.02,
+             dst_r=0., msk_r=0., msk_e=1., inf_wo_s=7., inf_w_s=14., rec=56.):
 
     # tracking the change in time
     track_S = []
