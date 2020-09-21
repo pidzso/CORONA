@@ -1,15 +1,32 @@
 import quantecon as qe
 import numpy as np
 import matplotlib.pyplot as plt
-from ProbabilityMX import mx
-from Parameters import N, init, steps
-from Parameters import infected_with_symptoms
-from Parameters import infected_without_symptoms
-from Parameters import recovered_with_immunity
+
+# probability matrix of transition
+def mx(S, A, R, dst_r, msk_r, msk_e, sym_r, mor_r):
+
+    s = (1 - dst_r) * (S * (1 - msk_r) + S * msk_r * (1 - msk_e))  # possible infectees
+    a = (1 - dst_r) * (A * (1 - msk_r) + A * msk_r * (1 - msk_e))  # possible infectors
+    r = (1 - dst_r) * R                                            # remaining population
+
+    SA = a / (s + a + r)      # chance of not getting infected
+    SS = 1 - SA               # chance of getting infected
+    AI = 1 / (sym_r + 1)      # chance of developing symptoms
+    AR = sym_r / (sym_r + 1)  # chance of not developing symptoms
+    ID = mor_r                # chance of dieing
+    IR = 1 - mor_r            # chance of recovering
+
+    return [[SS, SA, 0., 0., 0.],
+            [0., 0., AI, AR, 0.],
+            [0., 0., 0., IR, ID],
+            [1,  0., 0., 0., 0.],
+            [0., 0., 0., 0., 1.]]
 
 
 # simulate step days within the SAIRD model with N people starting from ini
-def simulate(NN, ini, step):
+def simulate(ini=[0.9, 0.1, 0.0, 0.0, 0.0], NN=1000000, step=200, sym_r=4, mor_r=0.02,
+             dst_r=0, msk_r=0, msk_e=1, inf_wo_s=7, inf_w_s=14, rec=56):
+
     # tracking the change in time
     track_S = []
     track_A = []
@@ -26,9 +43,9 @@ def simulate(NN, ini, step):
     D = int(NN * ini[4])
 
     # time spent within each state
-    time_A = np.random.poisson(infected_without_symptoms, A)
-    time_I = np.random.poisson(infected_with_symptoms, I)
-    time_R = np.random.poisson(recovered_with_immunity, R)
+    time_A = np.random.poisson(inf_wo_s, A)
+    time_I = np.random.poisson(inf_w_s, I)
+    time_R = np.random.poisson(rec, R)
 
     # state changers in the next step
     moves_A = np.sum((time_A == 0))
@@ -38,7 +55,7 @@ def simulate(NN, ini, step):
     for i in range(step):
 
         # record mx changes
-        m = mx(S, A, I, R, D)
+        m = mx(S, A, R, dst_r, msk_r, msk_e, sym_r, mor_r)
         track_m[0].append(m[0][0])
         track_m[1].append(m[0][1])
 
@@ -63,9 +80,9 @@ def simulate(NN, ini, step):
         r = dict(zip(x, y))
 
         # calculate newcomers the time they spent in states
-        poi_A = np.random.poisson(infected_without_symptoms, s.get('A', 0))
-        poi_I = np.random.poisson(infected_with_symptoms, a.get('I', 0))
-        poi_R = np.random.poisson(recovered_with_immunity, a.get('R', 0) + i.get('R', 0))
+        poi_A = np.random.poisson(inf_wo_s, s.get('A', 0))
+        poi_I = np.random.poisson(inf_w_s, a.get('I', 0))
+        poi_R = np.random.poisson(rec, a.get('R', 0) + i.get('R', 0))
         # update time remaining in each state and add newcomers
         time_A = np.append(np.add(time_A[time_A != 0], -1), poi_A)
         time_I = np.append(np.add(time_I[time_I != 0], -1), poi_I)
@@ -83,27 +100,55 @@ def simulate(NN, ini, step):
         I = I - moves_I + a.get('I', 0)
         R = R - moves_R + a.get('R', 0) + i.get('R', 0)
         D = D + i.get('D', 0)
-
+    '''
     # plot mx changes during step days
     plt.style.use('fivethirtyeight')
-    plt.plot(range(step), track_m[0], label='SS')
-    plt.plot(range(step), track_m[1], label='SA')
+    #plt.plot(range(step), track_m[0], label='SS')
+    #plt.plot(range(step), track_m[1], label='SA')
+
+    string = 'S' + str(init[0]) + '_A' + str(init[1]) + '_D' + str(dst_r) + \
+             '_MR' + str(msk_r) + '_ME' + str(msk_e)
 
     # plotting the changes of states during step days
-    #plt.plot(range(step), track_S, label='S')
-    #plt.plot(range(step), track_A, label='A')
-    #plt.plot(range(step), track_I, label='I')
-    #plt.plot(range(step), track_R, label='R')
-    #plt.plot(range(step), track_D, label='D')
+    plt.plot(range(step), track_I, label='I')
+    plt.plot(range(step), track_D, label='D')
 
     plt.legend()
-    return plt.show()
+    plt.savefig(string + '_ID.png')
+
+    plt.plot(range(step), track_S, label='S')
+    plt.plot(range(step), track_A, label='A')
+    plt.plot(range(step), track_R, label='R')
+
+    plt.legend()
+    plt.savefig(string + '_SAIRD.png')
+
+    plt.show()
+    '''
+    return [track_m, track_S, track_A, track_I, track_R, track_D]
 
 
-simulate(N, init, steps)
+[base_m, base_S, base_A, base_I, base_R, base_D] = simulate(ini=[0.9, 0.1, 0.0, 0.0, 0.0],  # initial distribution
+                                                            NN=1000000,   # population size
+                                                            step=200,     # simulation steps
+                                                            sym_r=4,      # ratio between asymptomatic and symptoms ppl
+                                                            mor_r=0.02,   # probability to die from COVID when symptotic
+                                                            dst_r=0,      # ratio of ppl staying home
+                                                            msk_r=0,      # ratio of ppl wearing masks
+                                                            msk_e=1,      # efficiency of masks in stopping the spreading
+                                                            inf_wo_s=7,   # expected number of days in state A
+                                                            inf_w_s=14,   # expected number of days in state I
+                                                            rec=56)       # expected number of days in state R
 
-#simulate(N, [0.99, 0.01, 0.00, 0.00, 0.00], steps)
-#simulate(N, [0.90, 0.10, 0.00, 0.00, 0.00], steps)
-#simulate(N, [0.80, 0.18, 0.02, 0.00, 0.00], steps)
-#simulate(N, [0.80, 0.10, 0.10, 0.00, 0.00], steps)
 
+[dist_m, dist_S, dist_A, dist_I, dist_R, dist_D] = simulate(dst_r=0.5)
+[msk_m, msk_S, msk_A, msk_I, msk_R, msk_D] = simulate(msk_r=0.5)
+[mske_m, mske_S, mske_A, mske_I, mske_R, mske_D] = simulate(msk_r=0.5, msk_e=0.5)
+[dima_m, dima_S, dima_A, dima_I, dima_R, dima_D] = simulate(dst_r=0.5, msk_r=0.5)
+[dime_m, dimae_S, dimae_A, dimae_I, dimae_R, dimae_D] = simulate(dst_r=0.5, msk_r=0.5, msk_e=0.5)
+
+#plt.style.use('fivethirtyeight')
+#plt.plot(range(len(base_m[0])), base_m[0], label='')
+#plt.plot(range(len(dist_m[0])), dist_m[0], label='')
+#plt.legend()
+#plt.show()
