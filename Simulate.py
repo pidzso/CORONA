@@ -6,16 +6,15 @@ import matplotlib.pyplot as plt
 # probability matrix of transition
 def mx(S, A, R, dst_r, msk_r, msk_e, sym_r, mor_r):
 
-    s = (1 - dst_r) * (S * (1 - msk_r) + S * msk_r * (1 - msk_e))  # possible infectees
-    a = (1 - dst_r) * (A * (1 - msk_r) + A * msk_r * (1 - msk_e))  # possible infectors
-    r = (1 - dst_r) * R                                            # remaining population
+    # distancing only matters for S, while mask works both for S and A
+    spread = (1 - dst_r) * (np.power((1 - msk_r), 2) + np.power(msk_r * (1 - msk_e), 2))
 
-    SA = a / (s + a + r)      # chance of not getting infected
-    SS = 1 - SA               # chance of getting infected
-    AI = 1 / (sym_r + 1)      # chance of developing symptoms
-    AR = sym_r / (sym_r + 1)  # chance of not developing symptoms
-    ID = mor_r                # chance of dieing
-    IR = 1 - mor_r            # chance of recovering
+    SA = spread * A / (S + A + R)  # chance of not getting infected
+    SS = 1 - SA                    # chance of getting infected
+    AI = 1 / (sym_r + 1)           # chance of developing symptoms
+    AR = sym_r / (sym_r + 1)       # chance of not developing symptoms
+    ID = mor_r                     # chance of dieing
+    IR = 1 - mor_r                 # chance of recovering
 
     return [[SS, SA, 0., 0., 0.],
             [0., 0., AI, AR, 0.],
@@ -129,24 +128,33 @@ def simulate(ini=[0.9, 0.1, 0.0, 0.0, 0.0], NN=1000000, step=200, sym_r=4., mor_
     return [track_m, track_S, track_A, track_I, track_R, track_D]
 
 
-[base_m, base_S, base_A, base_I, base_R, base_D] = simulate(ini=[0.9, 0.1, 0.0, 0.0, 0.0],  # initial distribution
-                                                            NN=1000000,   # population size
-                                                            step=200,     # simulation steps
-                                                            sym_r=4,      # ratio between asymptomatic and symptoms ppl
-                                                            mor_r=0.02,   # probability to die from COVID when symptotic
-                                                            dst_r=0,      # ratio of ppl staying home
-                                                            msk_r=0,      # ratio of ppl wearing masks
-                                                            msk_e=1,      # efficiency of masks in stopping the spreading
-                                                            inf_wo_s=7,   # expected number of days in state A
-                                                            inf_w_s=14,   # expected number of days in state I
-                                                            rec=56)       # expected number of days in state R
+[base_m, base_S, base_A, base_I, base_R, base_D] = simulate(
+                                                   ini=[0.9, 0.1, 0.0, 0.0, 0.0],  # initial distribution
+                                                   NN=1000000,   # population size
+                                                   step=200,     # simulation steps
+                                                   sym_r=4,      # ratio between asymptomatic and symptoms ppl
+                                                   mor_r=0.02,   # probability to die from COVID when symptotic
+                                                   dst_r=0,      # ratio of ppl staying home
+                                                   msk_r=0,      # ratio of ppl wearing masks
+                                                   msk_e=1,      # efficiency of masks in stopping the spreading
+                                                   inf_wo_s=7,   # expected number of days in state A
+                                                   inf_w_s=14,   # expected number of days in state I
+                                                   rec=56)       # expected number of days in state R
 
 
-[dist_m, dist_S, dist_A, dist_I, dist_R, dist_D] = simulate(dst_r=0.5)
-[msk_m, msk_S, msk_A, msk_I, msk_R, msk_D] = simulate(msk_r=0.5)
-[mske_m, mske_S, mske_A, mske_I, mske_R, mske_D] = simulate(msk_r=0.5, msk_e=0.5)
-[dima_m, dima_S, dima_A, dima_I, dima_R, dima_D] = simulate(dst_r=0.5, msk_r=0.5)
-[dime_m, dimae_S, dimae_A, dimae_I, dimae_R, dimae_D] = simulate(dst_r=0.5, msk_r=0.5, msk_e=0.5)
+[dist_m,  dist_S,  dist_A,  dist_I,  dist_R,  dist_D]  = simulate(dst_r=0.5)
+[msk_m,   msk_S,   msk_A,   msk_I,   msk_R,   msk_D]   = simulate(msk_r=0.5)
+[dima_m,  dima_S,  dima_A,  dima_I,  dima_R,  dima_D]  = simulate(dst_r=0.5, msk_r=0.5)
+[mske_m,  mske_S,  mske_A,  mske_I,  mske_R,  mske_D]  = simulate(msk_r=0.5, msk_e=0.5)
+[dimae_m, dimae_S, dimae_A, dimae_I, dimae_R, dimae_D] = simulate(dst_r=0.5, msk_r=0.5, msk_e=0.5)
+
+with open('result.txt', 'w') as f:
+    print(base_m,  '\n', base_S,  '\n', base_A,  '\n', base_I,  '\n', base_R,  '\n', base_D, '\n',
+          dist_m,  '\n', dist_S,  '\n', dist_A,  '\n', dist_I,  '\n', dist_R,  '\n', dist_D, '\n',
+          msk_m,   '\n', msk_S,   '\n', msk_A,   '\n', msk_I,   '\n', msk_R,   '\n', msk_D,  '\n',
+          mske_m,  '\n', mske_S,  '\n', mske_A,  '\n', mske_I,  '\n', mske_R,  '\n', mske_D, '\n',
+          dima_m,  '\n', dima_S,  '\n', dima_A,  '\n', dima_I,  '\n', dima_R,  '\n', dima_D, '\n',
+          dimae_m, '\n', dimae_S, '\n', dimae_A, '\n', dimae_I, '\n', dimae_R, '\n', dimae_D, '\n', file=f)
 
 #plt.style.use('fivethirtyeight')
 #plt.plot(range(len(base_m[0])), base_m[0], label='')
