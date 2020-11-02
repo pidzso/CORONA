@@ -1,9 +1,10 @@
 import quantecon as qe
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.optimize as opt
 
 
-class COVID:
+class SAIRD:
 
     def __init__(self, ini=[0.9, 0.1, 0.0, 0.0, 0.0],  # initial distribution
                        NN=1000000,   # population size
@@ -17,7 +18,8 @@ class COVID:
                        msk_e=1,      # efficiency of masks in stopping the spreading
                        inf_wo_s=7,   # expected number of days in state A
                        inf_w_s=14,   # expected number of days in state I
-                       rec=56):       # expected number of days in state R):
+                       rec=56):      # expected number of days in state R
+
         self.ini      = ini
         self.NN       = NN
         self.step     = step
@@ -32,38 +34,54 @@ class COVID:
         self.inf_w_s  = inf_w_s
         self.rec      = rec
 
+    # calculating the infection rate
+    def spread(self, param):
+
+        # separate params
+        S = param[0]
+        A = param[1]
+        R = param[2]
+        dst_r = param[3]
+        msk_r = param[4]
+
+        # mask effects the infectors and the infectees, while distancing effects all
+        return (A * (1 - msk_r)) / (S * (1 - msk_r) + A + R) * (1 - dst_r)
+
     # probability matrix of transition
     def mx(self, S, A, R, dst_r, msk_r):
 
-        # distancing only matters for S, while mask works both for S and A
-        spread = (1 - dst_r) * (np.power((1 - msk_r), 2) + np.power(msk_r * (1 - self.msk_e), 2))
+        # probabilities of state changes
+        SA = self.spread([S, A, R, dst_r, msk_r])  # chance of getting infected
+        SS = 1 - SA                                # chance of not getting infected
+        AI = 1 / (self.sym_r + 1)                  # chance of developing symptoms
+        AR = self.sym_r / (self.sym_r + 1)         # chance of not developing symptoms
+        ID = self.mor_r                            # chance of dieing when symptomatic
+        IR = 1 - self.mor_r                        # chance of recovering from symptoms
 
-        SA = spread * A / (S + A + R)       # chance of getting infected
-        SS = 1 - SA                         # chance of not getting infected
-        AI = 1 / (self.sym_r + 1)           # chance of developing symptoms
-        AR = self.sym_r / (self.sym_r + 1)  # chance of not developing symptoms
-        ID = self.mor_r                     # chance of dieing when symptomatic
-        IR = 1 - self.mor_r                 # chance of recovering from symptoms
-
+        # change matrix
         return [[SS, SA, 0., 0., 0.],
                 [0., 0., AI, AR, 0.],
                 [0., 0., 0., IR, ID],
                 [1,  0., 0., 0., 0.],
                 [0., 0., 0., 0., 1.]]
 
+    # utility function of an individual
+    def utility(self, param):  # param = [S, A, R, dst_r, msk_r]
+        return self.spread(param) * 1 / (self.sym_r + 1) * self.cost_i + \               # cost of getting into state I
+               self.spread(param) * 1 / (self.sym_r + 1) * self.mor_r * self.cost_d + \  # cost of getting into state D
+               self.cost_dst * param[3] + self.cost_msk * param[4]                       # cost of distancing and mask usage
+
     # determine distancing and mask rates as individuals
-    def play_alone(self, S, A, I, R, D):
-        # ToDo
-        dsk_r = 0.
-        msk_r = 0.
-        return dsk_r, msk_r
+    def play_alone(self, S, A, R):
+        bounds = opt.Bounds([0, 1], [0, 1])
+        return opt.minimize(lambda x: self.utility([S, A, R, x[0], x[1]]), [0, 0], bounds=bounds)
 
     # determine distancing and mask rates as government
     def play_together(self, S, A, I, R, D):
         # ToDo
-        dsk_r = 0.
+        dst_r = 0.
         msk_r = 0.
-        return dsk_r, msk_r
+        return dst_r, msk_r
 
     # simulate the process how the SAIRD states develop taking into account the ppl decision stepwise
     def simulate(self):
@@ -97,9 +115,11 @@ class COVID:
 
         for i in range(self.step):
 
+            # ToDo
             # play the game in current state to determine distancing and mask rates
-            dst_r, msk_r = self.play_alone(S, A, I, R, D)
-            #dst_r, msk_r = play_together(S, A, I, R, D)
+            dst_r, msk_r = self.play_alone(S, A, R).x
+            #dst_r, msk_r = play_together(S, A, R)
+            print(self.utility([S, A, R, dst_r, msk_r]))
 
             # update the mx and the mc
             m = self.mx(S, A, R, dst_r, msk_r)
@@ -187,13 +207,15 @@ class COVID:
         plt.savefig(string + '_SAIRD.png')
         plt.close()
 
-covid = COVID()
-[dst, msk, prob, S, A, I, R, D] = covid.simulate()
+
+model = SAIRD()
+
+[dst, msk, prob, S, A, I, R, D] = model.simulate()
 
 with open('result.txt', 'w') as f:
     print(dst, '\n', msk, '\n', prob, '\n', S, '\n', A, '\n', I, '\n', R, '\n', D, '\n', file=f)
 
-plt.style.use('fivethirtyeight')
-plt.plot(range(len(prob)), prob, label='Probability of Infection')
-plt.legend()
-plt.show()
+#plt.style.use('fivethirtyeight')
+#plt.plot(range(len(prob)), prob, label='Probability of Infection')
+#plt.legend()
+#plt.show()
